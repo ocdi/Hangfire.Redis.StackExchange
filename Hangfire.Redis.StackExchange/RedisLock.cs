@@ -91,7 +91,7 @@ namespace Hangfire.Redis
         {
             if (!_isDisposed)
             {
-                _redis.LockExtend(_key, OwnerId, (TimeSpan)state);
+                _redis.LockExtendAsync(_key, OwnerId, (TimeSpan)state);
             }
         }
 
@@ -102,9 +102,16 @@ namespace Hangfire.Redis
                 _isDisposed = true;
                 _slidingExpirationTimer.Dispose();
 
-                if (!_redis.LockRelease(_key, OwnerId))
+                try
                 {
-                    Debug.WriteLine("Lock {0} already timed out", _key);
+                    if (!_redis.LockRelease(_key, OwnerId))
+                    {
+                        Debug.WriteLine("Lock {0} already timed out", _key);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Failed to release {0} lock: {1}", _key, ex.Message);
                 }
 
                 HeldLocks.Remove(_key);
