@@ -92,7 +92,7 @@ namespace Hangfire.Redis
                     InProcessingState = ProcessingState.StateName.Equals(
                         state[3], StringComparison.OrdinalIgnoreCase),
                 })
-                .Where(x => x.Value.ServerId != null)
+                .Where(x => x.Value?.ServerId != null)
                 .OrderBy(x => x.Value.StartedAt));
         });
 
