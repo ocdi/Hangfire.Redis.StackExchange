@@ -67,10 +67,10 @@ namespace Hangfire.Redis
                 transaction.HashSetAsync(
                     _storage.GetRedisKey($"server:{serverId}"),
                     new Dictionary<string, string>
-                        {
+                    {
                         { "WorkerCount", context.WorkerCount.ToString(CultureInfo.InvariantCulture) },
                         { "StartedAt", JobHelper.SerializeDateTime(DateTime.UtcNow) },
-                        }.ToHashEntries());
+                    }.ToHashEntries());
 
                 if (context.Queues.Length > 0)
                 {
@@ -87,10 +87,10 @@ namespace Hangfire.Redis
                 Redis.HashSetAsync(
                     _storage.GetRedisKey($"server:{serverId}"),
                     new Dictionary<string, string>
-                        {
-                        { "WorkerCount", context.WorkerCount.ToString(CultureInfo.InvariantCulture) },
-                        { "StartedAt", JobHelper.SerializeDateTime(DateTime.UtcNow) },
-                        }.ToHashEntries());
+                    {
+                        {"WorkerCount", context.WorkerCount.ToString(CultureInfo.InvariantCulture)},
+                        {"StartedAt", JobHelper.SerializeDateTime(DateTime.UtcNow)},
+                    }.ToHashEntries());
 
                 if (context.Queues.Length > 0)
                 {
@@ -211,14 +211,15 @@ namespace Hangfire.Redis
 
         public override Dictionary<string, string> GetAllEntriesFromHash([NotNull] string key)
         {
-            var result = Redis.HashGetAll(_storage.GetRedisKey(key)).ToStringDictionary();
+            var entries = Redis.HashGetAll(_storage.GetRedisKey(key));
+            if (entries.Length == 0) return null;
 
-            return result.Count != 0 ? result : null;
+            return entries.ToStringDictionary();
         }
 
         public override List<string> GetAllItemsFromList([NotNull] string key)
         {
-            return Redis.ListRange(_storage.GetRedisKey(key)).ToStringArray().ToList();
+            return Redis.ListRange(_storage.GetRedisKey(key)).ToStringList();
         }
 
         public override HashSet<string> GetAllItemsFromSet([NotNull] string key)
@@ -228,7 +229,7 @@ namespace Hangfire.Redis
             {
                 result.Add(item.Element);
             }
-
+            
             return result;
         }
 
@@ -256,37 +257,32 @@ namespace Hangfire.Redis
         public override JobData GetJobData([NotNull] string jobId)
         {
             if (jobId == null) throw new ArgumentNullException(nameof(jobId));
-
-            var storedData = Redis.HashGetAll(_storage.GetRedisKey($"job:{jobId}"));
-            if (storedData.Length == 0) return null;
-
-            string type = storedData.FirstOrDefault(x => x.Name == "Type").Value;
-            string method = storedData.FirstOrDefault(x => x.Name == "Method").Value;
-            string parameterTypes = storedData.FirstOrDefault(x => x.Name == "ParameterTypes").Value;
-            string arguments = storedData.FirstOrDefault(x => x.Name == "Arguments").Value;
-            string createdAt = storedData.FirstOrDefault(x => x.Name == "CreatedAt").Value;
             
-            Job job = null;
-            JobLoadException loadException = null;
-
-            var invocationData = new InvocationData(type, method, parameterTypes, arguments);
-
+            var jobData = GetAllEntriesFromHash($"job:{jobId}");
+            if (jobData == null) return null;
+            
+            var invocationData = new InvocationData(
+                jobData.Get("Type"),
+                jobData.Get("Method"), 
+                jobData.Get("ParameterTypes"),
+                jobData.Get("Arguments"));
+                        
+            var job = new JobData
+            {
+                State = jobData.Get("State"),
+                CreatedAt = JobHelper.DeserializeNullableDateTime(jobData.Get("CreatedAt")) ?? DateTime.MinValue
+            };
+            
             try
             {
-                job = invocationData.Deserialize();
+                job.Job = invocationData.Deserialize();
             }
             catch (JobLoadException ex)
             {
-                loadException = ex;
+                job.LoadException = ex;
             }
-
-            return new JobData
-            {
-                Job = job,
-                State = storedData.FirstOrDefault(x => x.Name == "State").Value,
-                CreatedAt = JobHelper.DeserializeNullableDateTime(createdAt) ?? DateTime.MinValue,
-                LoadException = loadException
-            };
+            
+            return job;
         }
 
         public override string GetJobParameter([NotNull] string jobId, [NotNull] string name)
@@ -309,12 +305,12 @@ namespace Hangfire.Redis
 
         public override List<string> GetRangeFromList([NotNull] string key, int startingFrom, int endingAt)
         {
-            return Redis.ListRange(_storage.GetRedisKey(key), startingFrom, endingAt).ToStringArray().ToList();
+            return Redis.ListRange(_storage.GetRedisKey(key), startingFrom, endingAt).ToStringList();
         }
 
         public override List<string> GetRangeFromSet([NotNull] string key, int startingFrom, int endingAt)
         {
-            return Redis.SortedSetRangeByRank(_storage.GetRedisKey(key), startingFrom, endingAt).ToStringArray().ToList();
+            return Redis.SortedSetRangeByRank(_storage.GetRedisKey(key), startingFrom, endingAt).ToStringList();
         }
 
         public override long GetSetCount([NotNull] string key)
@@ -330,19 +326,14 @@ namespace Hangfire.Redis
         public override StateData GetStateData([NotNull] string jobId)
         {
             if (jobId == null) throw new ArgumentNullException(nameof(jobId));
-
-            var entries = Redis.HashGetAll(_storage.GetRedisKey($"job:{jobId}:state"));
-            if (entries.Length == 0) return null;
-
-            var stateData = entries.ToStringDictionary();
-
-            stateData.Remove("State");
-            stateData.Remove("Reason");
+            
+            var stateData = GetAllEntriesFromHash($"job:{jobId}:state");
+            if (stateData == null) return null;
 
             return new StateData
             {
-                Name = entries.First(x => x.Name == "State").Value,
-                Reason = entries.FirstOrDefault(x => x.Name == "Reason").Value,
+                Name = stateData.Pull("State", true),
+                Reason = stateData.Pull("Reason"),
                 Data = stateData
             };
         }

@@ -24,27 +24,82 @@ using System.Threading;
 namespace Hangfire.Redis
 {
     public static class RedisDatabaseExtensions
-	{
-		public static HashEntry[] ToHashEntries(this IEnumerable<KeyValuePair<string, string>> keyValuePairs)
-		{
-			var hashEntry = new HashEntry[keyValuePairs.Count()];
-			int i = 0;
-			foreach (var kvp in keyValuePairs)
-			{
-				hashEntry[i] = new HashEntry(kvp.Key, kvp.Value);
-				i++;
-			}
-			return hashEntry;
-		}
+    {
+	    public static HashEntry[] ToHashEntries(this IEnumerable<KeyValuePair<string, string>> keyValuePairs)
+	    {
+		    if (keyValuePairs == null) return null;
 
-        public static RedisValue[] ToRedisValues(this IEnumerable<string> values)
+		    if (keyValuePairs is ICollection<KeyValuePair<string, string>> collection)
+			    return ToHashEntries(collection);
+		    
+		    return keyValuePairs.Select(kvp => new HashEntry(kvp.Key, kvp.Value)).ToArray();
+	    }
+	    
+	    public static HashEntry[] ToHashEntries(this ICollection<KeyValuePair<string, string>> keyValuePairs)
+	    {
+		    if (keyValuePairs == null) return null;
+		    if (keyValuePairs.Count == 0) return Array.Empty<HashEntry>();
+		    
+		    var array = new HashEntry[keyValuePairs.Count]; var i = 0;
+		    foreach (var kvp in keyValuePairs)
+			    array[i++] = new HashEntry(kvp.Key, kvp.Value);
+		    
+		    return array;
+	    }
+
+	    public static RedisValue[] ToRedisValues(this IList<string> list)
         {
-            if (values == null)
-                throw new ArgumentNullException(nameof(values));
+	        if (list == null) return null;
+	        if (list.Count == 0) return Array.Empty<RedisValue>();
 
-            return values.Select(x => (RedisValue)x).ToArray();
+            var array = new RedisValue[list.Count];
+            for (var i = 0; i < array.Length; i++)
+	            array[i] = (RedisValue)list[i];
+            
+            return array;
         }
-		
+        
+        public static List<string> ToStringList(this RedisValue[] values)
+        {
+	        if (values == null) return null;
+	        
+	        var list = new List<string>(values.Length);
+	        for (var i = 0; i < values.Length; i++)
+		        list.Add((string)values[i]);
+	        
+	        return list;
+        }
+
+        public static T Pull<T>(this IDictionary<string, T> dictionary, string key, bool throwOnMissingKey = false)
+        {
+	        if (dictionary == null)
+		        throw new ArgumentNullException(nameof(dictionary));
+	        if (key == null)
+		        throw new ArgumentNullException(nameof(key));
+
+	        T value;
+	        if (dictionary.TryGetValue(key, out value))
+	        {
+		        dictionary.Remove(key);
+		        return value;
+	        }
+
+	        if (throwOnMissingKey)
+		        throw new KeyNotFoundException($"Required value for key '{key}' is not found");
+
+	        return default(T);
+        }
+        
+        public static T Get<T>(this IDictionary<string, T> dictionary, string key, T fallback = default(T))
+        {
+	        if (dictionary == null)
+		        throw new ArgumentNullException(nameof(dictionary));
+	        if (key == null)
+		        throw new ArgumentNullException(nameof(key));
+	        
+	        return dictionary.TryGetValue(key, out var value) ? value : fallback;
+        }
+        
 		//public static Dictionary<string, string> ToStringDictionary(this HashEntry[] entries)
 		//{
 		//	var dictionary = new Dictionary<string, string>(entries.Length);
