@@ -107,12 +107,12 @@ namespace Hangfire.Redis.Tests
 
             var thread1 = new Thread(state =>
             {
-                using (var testLock1 = RedisLock.Acquire(db, "testLock", TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(110)))
+                using (var testLock1 = RedisLock.Acquire(db, "testLock", TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250)))
                 {
                     Assert.NotNull(testLock1);
 
                     // sleep a bit more than holdDuration
-                    Thread.Sleep(250);
+                    Thread.Sleep(500);
                     sync1.Set();
                     sync2.Wait();
                 }
