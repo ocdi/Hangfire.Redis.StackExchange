@@ -53,7 +53,8 @@ namespace Hangfire.Redis
 #endif
         
         private static AsyncLocal<ISet<RedisKey>> _heldLocks = new AsyncLocal<ISet<RedisKey>>();
-
+        private static readonly object _syncObj = new object();
+        
         private static ISet<RedisKey> HeldLocks
         {
             get
@@ -79,7 +80,8 @@ namespace Hangfire.Redis
 
             if (holdsLock)
             {
-                HeldLocks.Add(_key);
+                lock (_syncObj)
+                    HeldLocks.Add(_key);
 
                 // start sliding expiration timer at half timeout intervals
                 var halfLockHoldDuration = TimeSpan.FromTicks(holdDuration.Ticks / 2);
@@ -91,7 +93,7 @@ namespace Hangfire.Redis
         {
             if (!_isDisposed)
             {
-                _redis.LockExtend(_key, OwnerId, (TimeSpan)state);
+                _redis.LockExtendAsync(_key, OwnerId, (TimeSpan)state);
             }
         }
 
@@ -102,12 +104,20 @@ namespace Hangfire.Redis
                 _isDisposed = true;
                 _slidingExpirationTimer.Dispose();
 
-                if (!_redis.LockRelease(_key, OwnerId))
+                try
                 {
-                    Debug.WriteLine("Lock {0} already timed out", _key);
+                    if (!_redis.LockRelease(_key, OwnerId))
+                    {
+                        Debug.WriteLine("Lock {0} already timed out", _key);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Failed to release {0} lock: {1}", _key, ex.Message);
                 }
 
-                HeldLocks.Remove(_key);
+                lock (_syncObj)
+                    HeldLocks.Remove(_key);
             }
         }
 
@@ -121,10 +131,13 @@ namespace Hangfire.Redis
             if (redis == null)
                 throw new ArgumentNullException(nameof(redis));
 
-            if (HeldLocks.Contains(key))
+            lock (_syncObj)
             {
-                // lock is already held
-                return new RedisLock(redis, key, false, holdDuration);
+                if (HeldLocks.Contains(key))
+                {
+                    // lock is already held
+                    return new RedisLock(redis, key, false, holdDuration);
+                }
             }
 
             // The comparison below uses timeOut as a max timeSpan in waiting Lock
