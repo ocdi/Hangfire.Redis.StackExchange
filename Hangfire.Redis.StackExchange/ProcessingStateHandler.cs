@@ -36,9 +36,6 @@ namespace Hangfire.Redis
             transaction.RemoveFromSet("processing", context.BackgroundJob.Id);
         }
 
-        public string StateName
-        {
-            get { return ProcessingState.StateName; }
-        }
+        public string StateName => ProcessingState.StateName;
     }
 }

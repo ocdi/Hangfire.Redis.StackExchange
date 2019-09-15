@@ -24,9 +24,8 @@ namespace Hangfire.Redis
         public void Apply(ApplyStateContext context, IWriteOnlyTransaction transaction)
         {
             transaction.InsertToList("deleted", context.BackgroundJob.Id);
-            
-            var storage = context.Storage as RedisStorage;
-            if (storage != null && storage.DeletedListSize > 0)
+
+            if (context.Storage is RedisStorage storage && storage.DeletedListSize > 0)
             {
                 transaction.TrimList("deleted", 0, storage.DeletedListSize);
             }
@@ -37,9 +36,6 @@ namespace Hangfire.Redis
             transaction.RemoveFromList("deleted", context.BackgroundJob.Id);
         }
 
-        public string StateName
-        {
-            get { return DeletedState.StateName; }
-        }
+        public string StateName => DeletedState.StateName;
     }
 }
