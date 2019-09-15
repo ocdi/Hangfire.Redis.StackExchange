@@ -43,14 +43,12 @@ namespace Hangfire.Redis
             TimeSpan invisibilityTimeout,
             FetchedJobsWatcherOptions options)
         {
-            if (storage == null) throw new ArgumentNullException(nameof(storage));
-            if (options == null) throw new ArgumentNullException(nameof(options));
             if (invisibilityTimeout.Ticks <= 0)
                 throw new ArgumentOutOfRangeException(nameof(invisibilityTimeout), "Invisibility timeout duration should be positive.");
 
-            _storage = storage;
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
             _invisibilityTimeout = invisibilityTimeout;
-            _options = options;
+            _options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
         public void Execute(CancellationToken cancellationToken)

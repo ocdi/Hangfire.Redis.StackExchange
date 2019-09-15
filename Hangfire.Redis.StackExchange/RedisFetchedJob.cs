@@ -35,16 +35,11 @@ namespace Hangfire.Redis
             [NotNull] string jobId, 
             [NotNull] string queue)
         {
-            if (storage == null) throw new ArgumentNullException(nameof(storage));
-            if (redis == null) throw new ArgumentNullException(nameof(redis));
-            if (jobId == null) throw new ArgumentNullException(nameof(jobId));
-            if (queue == null) throw new ArgumentNullException(nameof(queue));
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            _redis = redis ?? throw new ArgumentNullException(nameof(redis));
 
-            _storage = storage;
-            _redis = redis;
-
-            JobId = jobId;
-            Queue = queue;
+            JobId = jobId ?? throw new ArgumentNullException(nameof(jobId));
+            Queue = queue ?? throw new ArgumentNullException(nameof(queue));
         }
 
         public string JobId { get; }

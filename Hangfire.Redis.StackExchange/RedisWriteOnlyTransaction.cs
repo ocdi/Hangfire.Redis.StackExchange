@@ -32,11 +32,8 @@ namespace Hangfire.Redis
 
         public RedisWriteOnlyTransaction([NotNull] RedisStorage storage, [NotNull] ITransaction transaction)
         {
-            if (storage == null) throw new ArgumentNullException(nameof(storage));
-            if (transaction == null) throw new ArgumentNullException(nameof(transaction));
-
-            _storage = storage;
-            _transaction = transaction;
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
         }
 
         public override void AddRangeToSet([NotNull] string key, [NotNull] IList<string> items)
