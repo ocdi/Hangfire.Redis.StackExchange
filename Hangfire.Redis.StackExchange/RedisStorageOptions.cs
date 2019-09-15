@@ -41,9 +41,25 @@ namespace Hangfire.Redis
         public string Prefix { get; set; }
         public int Db { get; set; }
 
+
+        /// <summary>
+        /// Maximum number of entries to keep on the succeeded list
+        /// </summary>
         public int SucceededListSize { get; set; }
+
+        /// <summary>
+        /// Maximum number of entries on the deleted list
+        /// </summary>
         public int DeletedListSize { get; set; }
+
+        /// <summary>
+        /// Specifies queues that dequeue using LIFO
+        /// </summary>
         public string[] LifoQueues { get; set; }
+
+        /// <summary>
+        /// Do we care about transactional behaviour? :-)
+        /// </summary>
         public bool UseTransactions { get; set; }
     }
 }
