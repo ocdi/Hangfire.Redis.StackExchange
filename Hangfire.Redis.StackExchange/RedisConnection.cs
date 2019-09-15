@@ -117,11 +117,11 @@ namespace Hangfire.Redis
             // Do not modify the original parameters.
             var storedParameters = new Dictionary<string, string>(parameters)
             {
-                { "Type", invocationData.Type },
-                { "Method", invocationData.Method },
-                { "ParameterTypes", invocationData.ParameterTypes },
-                { "Arguments", invocationData.Arguments },
-                { "CreatedAt", JobHelper.SerializeDateTime(createdAt) }
+                { nameof(invocationData.Type), invocationData.Type },
+                { nameof(invocationData.Method), invocationData.Method },
+                { nameof(invocationData.ParameterTypes), invocationData.ParameterTypes },
+                { nameof(invocationData.Arguments), invocationData.Arguments },
+                { nameof(JobData.CreatedAt), JobHelper.SerializeDateTime(createdAt) }
             };
 
             if (_storage.UseTransactions)
@@ -262,15 +262,15 @@ namespace Hangfire.Redis
             if (jobData == null) return null;
             
             var invocationData = new InvocationData(
-                jobData.Get("Type"),
-                jobData.Get("Method"), 
-                jobData.Get("ParameterTypes"),
-                jobData.Get("Arguments"));
+                jobData.Get(nameof(InvocationData.Type)),
+                jobData.Get(nameof(InvocationData.Method)), 
+                jobData.Get(nameof(InvocationData.ParameterTypes)),
+                jobData.Get(nameof(InvocationData.Arguments)));
                         
             var job = new JobData
             {
                 State = jobData.Get("State"),
-                CreatedAt = JobHelper.DeserializeNullableDateTime(jobData.Get("CreatedAt")) ?? DateTime.MinValue
+                CreatedAt = JobHelper.DeserializeNullableDateTime(jobData.Get(nameof(JobData.CreatedAt))) ?? DateTime.MinValue
             };
             
             try

@@ -39,11 +39,8 @@ namespace Hangfire.Redis
 
 		public RedisMonitoringApi([NotNull] RedisStorage storage, [NotNull] IDatabase database)
         {
-            if (storage == null) throw new ArgumentNullException(nameof(storage));
-			if (database == null) throw new ArgumentNullException(nameof(database));
-
-            _storage = storage;
-			_database = database;
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+			_database = database ?? throw new ArgumentNullException(nameof(database));
         }
 
         public long ScheduledCount()
@@ -492,8 +489,7 @@ namespace Hangfire.Redis
             var result = new Dictionary<DateTime, long>();
             for (var i = 0; i < dates.Count; i++)
             {
-                long value;
-                if (!long.TryParse(valuesMap[valuesMap.Keys.ElementAt(i)], out value))
+                if (!long.TryParse(valuesMap[valuesMap.Keys.ElementAt(i)], out var value))
                 {
                     value = 0;
                 }
@@ -525,8 +521,7 @@ namespace Hangfire.Redis
             var result = new Dictionary<DateTime, long>();
             for (var i = 0; i < dates.Count; i++)
             {
-                long value;
-                if (!long.TryParse(valuesMap[valuesMap.Keys.ElementAt(i)], out value))
+                if (!long.TryParse(valuesMap[valuesMap.Keys.ElementAt(i)], out var value))
                 {
                     value = 0;
                 }
