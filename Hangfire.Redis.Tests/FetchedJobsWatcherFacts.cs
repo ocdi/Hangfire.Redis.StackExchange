@@ -100,12 +100,65 @@ namespace Hangfire.Redis.Tests
             // Act
 			watcher.Execute(_cts.Token);
 
-            // Arrange
+            // Assert
             Assert.Equal(0, redis.ListLength("{hangfire}:queue:my-queue:dequeued"));
             Assert.Equal(1, redis.ListLength("{hangfire}:queue:my-queue"));
 
             var job = redis.HashGetAll("{hangfire}:job:my-job");
             Assert.DoesNotContain(job, x => x.Name == "Checked");
+        }
+
+
+        [Fact, CleanRedis]
+        public void Execute_EnqueuesPingCheckedAndTimedOutJob_IfPingFlagSetLongerThanInvisibilityPeriod()
+        {
+			var redis = RedisUtils.CreateClient();
+            // Arrange
+            redis.SetAdd("{hangfire}:queues", "my-queue");
+            redis.ListRightPush("{hangfire}:queue:my-queue:dequeued", "my-job");
+            redis.HashSet("{hangfire}:job:my-job", "Checked",
+                JobHelper.SerializeDateTime(DateTime.UtcNow.AddDays(-1)));
+            redis.HashSet("{hangfire}:job:my-job", "Ping",
+                JobHelper.SerializeDateTime(DateTime.UtcNow.AddDays(-1)));
+
+            var watcher = CreateWatcher();
+
+            // Act
+			watcher.Execute(_cts.Token);
+
+            // Assert
+            Assert.Equal(0, redis.ListLength("{hangfire}:queue:my-queue:dequeued"));
+            Assert.Equal(1, redis.ListLength("{hangfire}:queue:my-queue"));
+
+            var job = redis.HashGetAll("{hangfire}:job:my-job");
+            Assert.DoesNotContain(job, x => x.Name == "Checked");
+            Assert.DoesNotContain(job, x => x.Name == "Ping");
+        }
+
+        [Fact, CleanRedis]
+        public void Execute_LeavesPingedJob_IfPingFlagSetLongerThanInvisibilityPeriod()
+        {
+            var redis = RedisUtils.CreateClient();
+            // Arrange
+            redis.SetAdd("{hangfire}:queues", "my-queue");
+            redis.ListRightPush("{hangfire}:queue:my-queue:dequeued", "my-job");
+            redis.HashSet("{hangfire}:job:my-job", "Checked",
+                JobHelper.SerializeDateTime(DateTime.UtcNow.AddDays(-1)));
+            redis.HashSet("{hangfire}:job:my-job", "Ping",
+                JobHelper.SerializeDateTime(DateTime.UtcNow));
+
+            var watcher = CreateWatcher();
+
+            // Act
+            watcher.Execute(_cts.Token);
+
+            // Assert
+            Assert.Equal(1, redis.ListLength("{hangfire}:queue:my-queue:dequeued"));
+            Assert.Equal(0, redis.ListLength("{hangfire}:queue:my-queue"));
+
+            var job = redis.HashGetAll("{hangfire}:job:my-job");
+            Assert.Contains(job, x => x.Name == "Ping");
+            
         }
 
         [Fact, CleanRedis]

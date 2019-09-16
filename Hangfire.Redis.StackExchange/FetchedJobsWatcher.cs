@@ -172,7 +172,7 @@ namespace Hangfire.Redis
             }
 
             return !string.IsNullOrEmpty(checkedTimestamp) &&
-                   (DateTime.UtcNow - JobHelper.DeserializeDateTime(checkedTimestamp) > _options.CheckedTimeout);
+                   (TimestampToTimeSpan(checkedTimestamp) > _options.CheckedTimeout);
         }
     }
 }
