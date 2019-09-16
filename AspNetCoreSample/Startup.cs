@@ -1,4 +1,5 @@
 ﻿using Hangfire;
+using Hangfire.Redis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -19,7 +20,7 @@ namespace AspNetCoreHost
             services.AddHangfire((provider, configuration) => configuration
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
                 .UseSimpleAssemblyNameTypeSerializer()
-                .UseRedisStorage());
+                .UseRedisStorage("localhost:6379", new RedisStorageOptions { InvisibilityTimeout = TimeSpan.FromMinutes(2) }));
 
             services.AddHostedService<RecurringJobsService>();
 
