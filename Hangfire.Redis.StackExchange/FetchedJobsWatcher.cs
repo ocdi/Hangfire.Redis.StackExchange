@@ -106,10 +106,11 @@ namespace Hangfire.Redis
         {
             var flags = connection.Redis.HashGet(
                 _storage.GetRedisKey($"job:{jobId}"),
-                new RedisValue[] { "Fetched", "Checked" });
+                new RedisValue[] { "Fetched", "Checked", "Ping" });
 
             var fetched = flags[0];
             var @checked = flags[1];
+            var ping = flags[2];
 
             if (string.IsNullOrEmpty(fetched) && string.IsNullOrEmpty(@checked))
             {
@@ -139,7 +140,7 @@ namespace Hangfire.Redis
                 // Checkpoint #1-2. The job is in the implicit 'Checked' state.
                 // It will be re-queued after the CheckedTimeout will be expired.
             }
-            else
+            else if (!AliveByPingTime(ping))
             {
                 if (TimedOutByFetchedTime(fetched) || TimedOutByCheckedTime(fetched, @checked))
                 {
@@ -153,11 +154,12 @@ namespace Hangfire.Redis
             return false;
         }
 
-        private bool TimedOutByFetchedTime(string fetchedTimestamp)
-        {
-            return !string.IsNullOrEmpty(fetchedTimestamp) &&
-                   (DateTime.UtcNow - JobHelper.DeserializeDateTime(fetchedTimestamp) > _invisibilityTimeout);
-        }
+        private bool TimedOutByFetchedTime(string fetchedTimestamp) => TimestampToTimeSpan(fetchedTimestamp) > _invisibilityTimeout;
+
+        private TimeSpan? TimestampToTimeSpan(string fetchedTimestamp) => !string.IsNullOrEmpty(fetchedTimestamp) ? (DateTime.UtcNow - JobHelper.DeserializeDateTime(fetchedTimestamp)) : (TimeSpan?)null;
+
+        private bool AliveByPingTime(string pingTime) => TimestampToTimeSpan(pingTime) < _invisibilityTimeout;
+
 
         private bool TimedOutByCheckedTime(string fetchedTimestamp, string checkedTimestamp)
         {

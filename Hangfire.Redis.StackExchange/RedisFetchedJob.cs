@@ -18,6 +18,8 @@ using System;
 using Hangfire.Storage;
 using StackExchange.Redis;
 using Hangfire.Annotations;
+using System.Threading;
+using Hangfire.Common;
 
 namespace Hangfire.Redis
 {
@@ -28,6 +30,7 @@ namespace Hangfire.Redis
         private bool _disposed;
         private bool _removedFromQueue;
         private bool _requeued;
+        private Timer _timer;
 
         public RedisFetchedJob(
             [NotNull] RedisStorage storage, 
@@ -40,7 +43,12 @@ namespace Hangfire.Redis
 
             JobId = jobId ?? throw new ArgumentNullException(nameof(jobId));
             Queue = queue ?? throw new ArgumentNullException(nameof(queue));
+
+            var halfLife = (int)(storage.InvisibilityTimeout.TotalMilliseconds / 2);
+            _timer = new Timer(JobPing, null, halfLife, halfLife);
         }
+
+
 
         public string JobId { get; }
         public string Queue { get; }
@@ -79,6 +87,8 @@ namespace Hangfire.Redis
         {
             if (_disposed) return;
 
+            _timer.Dispose();
+
             if (!_removedFromQueue && !_requeued)
             {
                 Requeue();
@@ -90,7 +100,15 @@ namespace Hangfire.Redis
         private void RemoveFromFetchedList(IDatabaseAsync databaseAsync)
         {
             databaseAsync.ListRemoveAsync(_storage.GetRedisKey($"queue:{Queue}:dequeued"), JobId, -1);
-            databaseAsync.HashDeleteAsync(_storage.GetRedisKey($"job:{JobId}"), new RedisValue[] { "Fetched", "Checked" });
+            databaseAsync.HashDeleteAsync(_storage.GetRedisKey($"job:{JobId}"), new RedisValue[] { "Fetched", "Checked", "Ping" });
+        }
+
+        private void JobPing(object state)
+        {
+            _redis.HashSet(
+                    _storage.GetRedisKey($"job:{JobId}"),
+                    "Ping",
+                    JobHelper.SerializeDateTime(DateTime.UtcNow));
         }
     }
 }

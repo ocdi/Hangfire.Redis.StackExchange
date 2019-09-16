@@ -74,6 +74,7 @@ namespace Hangfire.Redis
         internal int DeletedListSize => _options.DeletedListSize;
         
         internal string SubscriptionChannel => _subscription.Channel;
+        internal TimeSpan InvisibilityTimeout => _options.InvisibilityTimeout;
 
         internal string[] LifoQueues => _options.LifoQueues;
 
