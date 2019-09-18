@@ -72,11 +72,14 @@ namespace Hangfire.Redis
             if (_storage.UseTransactions)
             {
                 var transaction = _redis.CreateTransaction();
+                // prevent double entry for requeued job
+                transaction.ListRemoveAsync(_storage.GetRedisKey($"queue:{Queue}"), JobId, -1);
                 transaction.ListRightPushAsync(_storage.GetRedisKey($"queue:{Queue}"), JobId);
                 RemoveFromFetchedList(transaction);
                 transaction.Execute();
             } else
             {
+                _redis.ListRemoveAsync(_storage.GetRedisKey($"queue:{Queue}"), JobId, -1);
                 _redis.ListRightPushAsync(_storage.GetRedisKey($"queue:{Queue}"), JobId);
                 RemoveFromFetchedList(_redis);
             }

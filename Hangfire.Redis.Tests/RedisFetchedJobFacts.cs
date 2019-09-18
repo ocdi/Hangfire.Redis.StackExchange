@@ -11,6 +11,8 @@ namespace Hangfire.Redis.Tests
         private const string JobId = "id";
         private const string Queue = "queue";
 
+        private const string MY_QUEUE_KEY = "{hangfire}:queue:my-queue";
+
         private readonly RedisStorage _storage;
         private readonly Mock<IDatabase> _redis;
 
@@ -155,6 +157,27 @@ namespace Hangfire.Redis.Tests
 
                 // Assert
                 Assert.Equal("my-job", (string)redis.ListRightPop("{hangfire}:queue:my-queue"));
+            });
+        }
+
+        [Fact, CleanRedis]
+        public void Requeue_DoesntDuplicateDequeued()
+        {
+            UseRedis(redis =>
+            {
+                // Arrange
+                redis.ListRightPush("{hangfire}:queue:my-queue:dequeued", "my-job");
+                redis.ListRightPush(MY_QUEUE_KEY, "my-job");
+                var fetchedJob = new RedisFetchedJob(_storage, redis, "my-job", "my-queue");
+
+                // Act
+                fetchedJob.Requeue();
+
+                var length = redis.ListLength(MY_QUEUE_KEY);
+                Assert.Equal(1, length);
+
+                // Assert
+                Assert.Equal("my-job", (string)redis.ListRightPop(MY_QUEUE_KEY));
             });
         }
 
